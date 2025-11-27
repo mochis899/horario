@@ -205,22 +205,39 @@ def sugerencia_horario(row) -> str:
     Demo sencilla de sugerencia de horario:
     - Si faltan horas -> sugerir salida más tarde.
     - Si sobran horas -> sugerir salida más pronto.
+    Maneja también NaT (valores nulos de pandas) en fechas.
     """
-    diff = row["horas_trabajadas"] - row["horas_objetivo"]
-    if row["primera_entrada"] is None or row["ultima_salida"] is None:
+    # Si falta entrada o salida, no sugerimos nada
+    if pd.isna(row["primera_entrada"]) or pd.isna(row["ultima_salida"]):
         return "No se puede sugerir (falta entrada/salida)."
+
+    salida_actual = row["ultima_salida"]
+    entrada_actual = row["primera_entrada"]
+
+    # Por seguridad extra, por si algo raro llega aquí
+    if not isinstance(salida_actual, (pd.Timestamp, datetime)) or not isinstance(entrada_actual, (pd.Timestamp, datetime)):
+        return "No se puede sugerir (formato de fecha no válido)."
+
+    diff = float(row["horas_trabajadas"]) - float(row["horas_objetivo"])
 
     if abs(diff) < 0.1:
         return "Horario OK."
 
-    salida_actual = row["ultima_salida"]
     if diff > 0:
+        # Se ha pasado de las horas: sugerir salir antes
         nueva_salida = salida_actual - timedelta(hours=diff)
-        return f"Se pasa {diff:.2f} h. Cambiar salida de {salida_actual.strftime('%H:%M')} a {nueva_salida.strftime('%H:%M')}."
+        return (
+            f"Se pasa {diff:.2f} h. Cambiar salida de "
+            f"{salida_actual.strftime('%H:%M')} a {nueva_salida.strftime('%H:%M')}."
+        )
     else:
+        # Faltan horas: sugerir salir más tarde
         falta = -diff
         nueva_salida = salida_actual + timedelta(hours=falta)
-        return f"Faltan {falta:.2f} h. Cambiar salida de {salida_actual.strftime('%H:%M')} a {nueva_salida.strftime('%H:%M')}."
+        return (
+            f"Faltan {falta:.2f} h. Cambiar salida de "
+            f"{salida_actual.strftime('%H:%M')} a {nueva_salida.strftime('%H:%M')}."
+        )
 
 
 # =============================
